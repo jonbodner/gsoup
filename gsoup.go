@@ -12,17 +12,14 @@ import (
 )
 
 // Function to pull the href attribute from an anchor token from the html tokenizer
-func getHrefFromAnchorTag(t html.Token) (ok bool, href string) {
+func getHrefFromAnchorTag(t html.Token) (string, bool) {
 	// Iterate over all of the Token's attributes until we find an "href"
 	for _, a := range t.Attr {
 		if a.Key == "href" {
-			href = a.Val
-			ok = true
+			return a.Val, true
 		}
 	}
-	// "bare" return will return the variables (ok, href) as defined in
-	// the function definition
-	return
+	return "", false
 }
 
 // Extract all http links from a given web page
@@ -67,7 +64,7 @@ func listLinks(url string, ch chan string, chanExhausted chan bool) {
 				continue
 			}
 			// Extract the href value from , if there is one
-			ok, url := getHrefFromAnchorTag(t)
+			url, ok := getHrefFromAnchorTag(t)
 			if !ok {
 				continue
 			}
@@ -398,6 +395,9 @@ func (r Root) Attrs() map[string]string {
 func (r Root) Text() string {
 	defer localPanic("Text()")
 	k := r.Pointer.FirstChild
+	if k == nil {
+		return ""
+	}
 checkNode:
 	if k.Type != html.TextNode {
 		k = k.NextSibling
@@ -428,5 +428,24 @@ checkNode:
 		return k.Data
 	}
 
+	return ""
+}
+
+// TextBetter does the same thing as Text, only idiomatically and faster
+func (r Root) TextBetter() string {
+	p := r.Pointer
+	if p == nil {
+		return ""
+	}
+
+	for k := p.FirstChild; k != nil; k = k.NextSibling {
+		if k.Type != html.TextNode {
+			continue
+		}
+		if len(strings.TrimSpace(k.Data)) == 0 {
+			continue
+		}
+		return k.Data
+	}
 	return ""
 }
